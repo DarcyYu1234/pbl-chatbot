@@ -9,16 +9,17 @@
 <body class="login">
   <div class="card">
     <h1>PBL 探究助手</h1>
-    <p class="muted">请用教师分配的账号登录</p>
+    <p class="muted">请用账号登录</p>
 
     <input type="email"    id="email"    placeholder="邮箱"     autocomplete="username">
     <input type="password" id="password" placeholder="密码"     autocomplete="current-password">
     <button id="loginBtn">登录</button>
     <p class="err" id="err"></p>
 
-    <p class="muted small">
-      学生账号请联系任课教师获取。<br>
-      教师首次登录后，可在仪表盘中创建学生账号。
+    <p class="muted small" style="margin-top:16px">
+      还没有账号？
+      <a href="/signup.html" style="color:var(--primary);text-decoration:underline">学生自助注册</a><br>
+      忘记密码？请联系任课教师重置。
     </p>
   </div>
 
