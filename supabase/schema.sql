@@ -66,6 +66,24 @@ alter table public.conversations enable row level security;
 alter table public.api_logs      enable row level security;
 alter table public.settings      enable row level security;
 
+-- ============================================================
+-- 关键修复：把"当前用户是否为教师"抽成 security definer 函数。
+-- security definer 以函数所有者权限运行，会绕过 RLS，
+-- 从而避免 policy 里子查询 profiles 造成的无限递归死循环。
+-- ============================================================
+drop function if exists public.is_teacher();
+create or replace function public.is_teacher()
+returns boolean
+language sql security definer stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role = 'teacher'
+  );
+$$;
+grant execute on function public.is_teacher() to anon, authenticated;
+
 -- profiles
 drop policy if exists "self read profile"      on public.profiles;
 drop policy if exists "teacher read all profiles" on public.profiles;
@@ -74,16 +92,10 @@ create policy "self read profile" on public.profiles
   for select using (auth.uid() = id);
 
 create policy "teacher read all profiles" on public.profiles
-  for select using (
-    exists (select 1 from public.profiles p
-            where p.id = auth.uid() and p.role = 'teacher')
-  );
+  for select using (public.is_teacher());
 
 create policy "teacher update profiles" on public.profiles
-  for update using (
-    exists (select 1 from public.profiles p
-            where p.id = auth.uid() and p.role = 'teacher')
-  );
+  for update using (public.is_teacher());
 
 -- conversations
 drop policy if exists "student read own"   on public.conversations;
@@ -96,18 +108,12 @@ create policy "student insert own" on public.conversations
   for insert with check (student_id = auth.uid());
 
 create policy "teacher read all conv" on public.conversations
-  for select using (
-    exists (select 1 from public.profiles p
-            where p.id = auth.uid() and p.role = 'teacher')
-  );
+  for select using (public.is_teacher());
 
 -- api_logs（仅教师可见）
 drop policy if exists "teacher read logs" on public.api_logs;
 create policy "teacher read logs" on public.api_logs
-  for select using (
-    exists (select 1 from public.profiles p
-            where p.id = auth.uid() and p.role = 'teacher')
-  );
+  for select using (public.is_teacher());
 
 -- settings（公开读，教师写）
 drop policy if exists "anyone read settings"      on public.settings;
@@ -116,10 +122,7 @@ create policy "anyone read settings" on public.settings
   for select using (true);
 
 create policy "teacher update settings" on public.settings
-  for update using (
-    exists (select 1 from public.profiles p
-            where p.id = auth.uid() and p.role = 'teacher')
-  );
+  for update using (public.is_teacher());
 
 -- ============================================================
 -- Trigger: 学生注册时自动创建 profile（默认 role='student'）
