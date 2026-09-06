@@ -28,7 +28,15 @@ async function init() {
     .select('*')
     .eq('id', session.user.id)
     .single();
-  if (pErr || !p || p.role !== 'teacher') {
+
+  // 归一化白名单兜底（与 auth.js 一致）：数据库 role 被写成 student 时，
+  // 只要登录邮箱是教师邮箱也允许进入教师仪表盘。
+  const TEACHER_EMAILS = ['yxyyxxdaisy@163.com'];
+  const norm = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
+  const isTeacherAllowed = (p && p.role === 'teacher') ||
+                           TEACHER_EMAILS.some(t => norm(t) === norm(session.user.email));
+
+  if (pErr || !p || !isTeacherAllowed) {
     document.body.innerHTML = `
       <div style="padding:30px;font-family:monospace;background:#fef2f2;color:#7f1d1d;min-height:100vh">
         <h2>教师身份校验失败</h2>
