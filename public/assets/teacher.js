@@ -190,6 +190,16 @@ async function onCreate() {
 async function loadLogs() {
   const r = await authedFetch('/api/admin/logs?limit=200');
   const j = await r.json();
+  // 调试：把 API 原始响应打到页面底部，方便排查"看不到日志"
+  let dbg = document.getElementById('logsDbg');
+  if (!dbg) {
+    dbg = document.createElement('pre');
+    dbg.id = 'logsDbg';
+    dbg.style.cssText = 'margin-top:8px;padding:8px;background:#fef9c3;color:#713f12;font-size:11px;border-radius:4px;overflow:auto;max-height:120px';
+    document.querySelector('#logsTbody').parentElement.parentElement.appendChild(dbg);
+  }
+  dbg.textContent = `[DEBUG loadLogs] status=${r.status} ok=${r.ok} | logs.length=${(j.logs || []).length} | err=${j.error || '-'} | msg=${j.message || '-'} | 完整响应=${JSON.stringify(j).slice(0, 500)}`;
+
   const tbody = document.getElementById('logsTbody');
   tbody.innerHTML = '';
   for (const l of (j.logs || [])) {
