@@ -1,0 +1,184 @@
+// 教师仪表盘
+// =========================================================
+//  ⚠️ 必须和 auth.js / student.js 里完全一致 —— 部署后替换：
+// =========================================================
+const SUPABASE_URL     = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+// =========================================================
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STAGE_DISPLAY = {
+  problem_formulation: '① 问题建构',
+  investigation:       '② 调查与数据收集',
+  analysis:            '③ 分析与建模',
+  reflection:          '④ 反思与结论'
+};
+
+let session;
+
+async function init() {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) { location.href = '/'; return; }
+  session = data.session;
+
+  const { data: p } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+  if (!p || p.role !== 'teacher') {
+    await supabase.auth.signOut();
+    location.href = '/';
+    return;
+  }
+  document.getElementById('userLabel').textContent = '教师：' + p.display_name;
+  document.getElementById('logoutBtn').onclick = async () => {
+    await supabase.auth.signOut();
+    location.href = '/';
+  };
+
+  await loadCtrl();
+  await loadStudents();
+  await loadLogs();
+
+  document.getElementById('toggleBot').onchange     = onToggle;
+  document.getElementById('applyStageBtn').onclick   = onStage;
+  document.getElementById('createBtn').onclick       = onCreate;
+  document.getElementById('refreshLogs').onclick     = loadLogs;
+
+  // 每 15 秒自动刷新控制状态 + 日志
+  setInterval(async () => { await loadCtrl(); await loadLogs(); }, 15000);
+}
+
+async function authedFetch(path, opts = {}) {
+  return fetch(path, {
+    ...opts,
+    headers: {
+      ...(opts.headers || {}),
+      Authorization: `Bearer ${session.access_token}`
+    }
+  });
+}
+
+async function loadCtrl() {
+  const { data } = await supabase
+    .from('settings')
+    .select('key,value')
+    .in('key', ['chatbot_enabled', 'current_stage']);
+  const cfg = Object.fromEntries((data || []).map(r => [r.key, r.value]));
+  document.getElementById('toggleBot').checked = cfg.chatbot_enabled !== false;
+  document.getElementById('stageSelect').value = cfg.current_stage || 'problem_formulation';
+}
+
+async function onToggle(e) {
+  const enabled = e.target.checked;
+  const r = await authedFetch('/api/admin/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled })
+  });
+  document.getElementById('ctrlMsg').textContent =
+    r.ok ? `已${enabled ? '开启' : '关闭'} chatbot` : '更新失败';
+}
+
+async function onStage() {
+  const stage = document.getElementById('stageSelect').value;
+  const r = await authedFetch('/api/admin/stage', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage })
+  });
+  document.getElementById('ctrlMsg').textContent =
+    r.ok ? `当前阶段已切换到 ${STAGE_DISPLAY[stage]}` : '更新失败';
+}
+
+async function loadStudents() {
+  const r  = await authedFetch('/api/admin/students');
+  const j  = await r.json();
+  const tbody = document.querySelector('#studentsTbl tbody');
+  tbody.innerHTML = '';
+  for (const s of (j.students || [])) {
+    const tr = document.createElement('tr');
+    const when = new Date(s.created_at).toLocaleDateString();
+    tr.innerHTML = `
+      <td>${escape(s.email)}</td>
+      <td>${escape(s.display_name)}</td>
+      <td>${escape(s.student_code || '')}</td>
+      <td>${escape(s.class_label || '')}</td>
+      <td>${when}</td>
+      <td>
+        <button data-id="${s.id}" class="del">删除</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll('.del').forEach(btn => {
+    btn.onclick = async () => {
+      if (!confirm('确认删除这个学生账号？此操作不可逆。')) return;
+      const r = await authedFetch('/api/admin/students?id=' + btn.dataset.id, {
+        method: 'DELETE'
+      });
+      if (r.ok) { loadStudents(); }
+      else alert('删除失败');
+    };
+  });
+}
+
+async function onCreate() {
+  const email        = document.getElementById('newEmail').value.trim();
+  const display_name = document.getElementById('newName').value.trim();
+  const student_code = document.getElementById('newCode').value.trim();
+  const class_label  = document.getElementById('newClass').value.trim();
+  const password     = document.getElementById('newPwd').value;
+  if (!email || !password) { alert('邮箱和密码必填'); return; }
+
+  const r = await authedFetch('/api/admin/students', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, display_name, student_code, class_label })
+  });
+  const j = await r.json();
+  const msg = document.getElementById('studentMsg');
+  if (!r.ok) {
+    msg.textContent = '失败：' + (j.error || '未知错误');
+    return;
+  }
+  msg.innerHTML = `✅ 已创建 <code>${escape(email)}</code>，初始密码：<code>${escape(password)}</code>（请把这两条信息告知学生）`;
+  // 清空表单
+  ['newEmail','newName','newCode','newClass','newPwd'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  loadStudents();
+}
+
+async function loadLogs() {
+  const r = await authedFetch('/api/admin/logs?limit=200');
+  const j = await r.json();
+  const tbody = document.getElementById('logsTbody');
+  tbody.innerHTML = '';
+  for (const l of (j.logs || [])) {
+    const tr = document.createElement('tr');
+    const when = new Date(l.created_at).toLocaleString();
+    tr.innerHTML = `
+      <td>${when}</td>
+      <td>${escape(l.student_code || (l.student_id ? l.student_id.slice(0,8) : '—') || '—')}</td>
+      <td>${STAGE_DISPLAY[l.stage] || l.stage || '—'}</td>
+      <td>${l.prompt_tokens ?? '—'}</td>
+      <td>${l.completion_tokens ?? '—'}</td>
+      <td>${l.latency_ms ?? '—'}</td>
+      <td style="color:${l.status_code === 200 ? '#15803d' : '#dc2626'}">
+        ${l.status_code}${l.error ? ` · ${escape((l.error || '').slice(0, 40))}` : ''}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function escape(s) {
+  return String(s || '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+init();

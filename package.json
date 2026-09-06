@@ -1,0 +1,14 @@
+{
+  "name": "pbl-chatbot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PBL chatbot with student/teacher portals, DeepSeek API",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "openai": "^4.67.0"
+  }
+}

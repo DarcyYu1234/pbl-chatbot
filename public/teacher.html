@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>PBL 探究助手 · 教师仪表盘</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>PBL 探究助手 · 教师仪表盘</h1>
+    <div class="who">
+      <span id="userLabel">…</span>
+      <a href="#" id="logoutBtn">退出</a>
+    </div>
+  </header>
+
+  <main class="dashboard">
+
+    <!-- ① 全局控制 -->
+    <section class="panel">
+      <h2>① 全局控制</h2>
+      <div class="row">
+        <label>
+          <input type="checkbox" id="toggleBot">
+          <span>开启 chatbot（取消勾选后学生端会立即被禁用）</span>
+        </label>
+      </div>
+      <div class="row">
+        <span>当前 PBL 阶段：</span>
+        <select id="stageSelect">
+          <option value="problem_formulation">① 问题建构</option>
+          <option value="investigation">② 调查与数据收集</option>
+          <option value="analysis">③ 分析与建模</option>
+          <option value="reflection">④ 反思与结论</option>
+        </select>
+        <button id="applyStageBtn">应用</button>
+      </div>
+      <p id="ctrlMsg" class="muted small"></p>
+    </section>
+
+    <!-- ② 学生账号管理 -->
+    <section class="panel">
+      <h2>② 学生账号管理</h2>
+      <table class="tbl" id="studentsTbl">
+        <thead>
+          <tr><th>邮箱</th><th>姓名</th><th>学号</th><th>班级</th><th>创建时间</th><th>操作</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <details>
+        <summary>+ 新建学生账号</summary>
+        <div class="form-row">
+          <input id="newEmail" placeholder="邮箱（学生登录用）">
+          <input id="newName"  placeholder="学生姓名">
+          <input id="newCode"  placeholder="学号（可选）">
+          <input id="newClass" placeholder="班级（可选）">
+          <input id="newPwd"   placeholder="初始密码（≥ 6 位）">
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="createBtn">创建</button>
+          <span id="createTip" class="muted small">创建后请把邮箱 + 初始密码告知学生。</span>
+        </div>
+      </details>
+      <p id="studentMsg" class="muted small"></p>
+    </section>
+
+    <!-- ③ API 调用日志 -->
+    <section class="panel">
+      <h2>③ API 调用日志</h2>
+      <p class="muted small">显示最近 200 次 DeepSeek 调用（按时间倒序）。每 15 秒自动刷新。</p>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>时间</th><th>学生</th><th>阶段</th>
+            <th>输入 tokens</th><th>输出 tokens</th><th>延迟(ms)</th><th>状态</th>
+          </tr>
+        </thead>
+        <tbody id="logsTbody"></tbody>
+      </table>
+      <button id="refreshLogs">刷新</button>
+    </section>
+
+  </main>
+
+  <script type="module" src="/assets/teacher.js"></script>
+</body>
+</html>

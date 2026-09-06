@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>PBL 探究助手 · 登录</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body class="login">
+  <div class="card">
+    <h1>PBL 探究助手</h1>
+    <p class="muted">请用教师分配的账号登录</p>
+
+    <input type="email"    id="email"    placeholder="邮箱"     autocomplete="username">
+    <input type="password" id="password" placeholder="密码"     autocomplete="current-password">
+    <button id="loginBtn">登录</button>
+    <p class="err" id="err"></p>
+
+    <p class="muted small">
+      学生账号请联系任课教师获取。<br>
+      教师首次登录后，可在仪表盘中创建学生账号。
+    </p>
+  </div>
+
+  <script type="module" src="/assets/auth.js"></script>
+</body>
+</html>

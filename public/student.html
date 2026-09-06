@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>PBL 探究助手 · 学生</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="title">
+      <strong>探究搭子</strong>
+      <span id="stageBadge" class="stage-badge">…</span>
+    </div>
+    <div class="who">
+      <span id="userLabel">…</span>
+      <a href="#" id="logoutBtn">退出</a>
+    </div>
+  </header>
+
+  <main class="chat" id="chat">
+    <!-- 消息在这里渲染 -->
+  </main>
+
+  <footer class="composer">
+    <textarea id="input" rows="2"
+              placeholder="把你的想法写下来…（Shift+Enter 换行，Enter 发送）"></textarea>
+    <button id="sendBtn">发送</button>
+  </footer>
+
+  <div id="banner" class="banner hidden">
+    ⚠️ chatbot 当前被教师关闭，请稍后再试。
+  </div>
+
+  <script type="module" src="/assets/student.js"></script>
+</body>
+</html>
