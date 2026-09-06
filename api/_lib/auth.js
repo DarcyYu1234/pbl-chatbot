@@ -19,8 +19,18 @@ async function authenticate(req) {
   return { user, profile };
 }
 
+// 教师邮箱白名单（与前端 auth.js / teacher.js 一致）
+// 兜底原因：教师账号手动建在 auth.users，trigger 会自动给 profile 写 role='student'，
+// 若后续没 UPDATE 成 teacher，role 一直是 student，会导致 requireTeacher 拒绝教师。
+// 用邮箱白名单兜底，即使数据库 role 错，教师也能正常使用教师端 API。
+// 生产建议改从环境变量 TEACHER_EMAILS 读取。
+const TEACHER_EMAILS = ['yxyyxxdaisy@163.com'];
+const norm = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
+
 function requireTeacher(auth) {
-  if (!auth?.profile || auth.profile.role !== 'teacher') {
+  const roleOk = auth?.profile?.role === 'teacher' ||
+                 TEACHER_EMAILS.some(t => norm(t) === norm(auth?.user?.email));
+  if (!roleOk) {
     const err = new Error('Forbidden: 需要教师角色');
     err.statusCode = 403;
     throw err;
