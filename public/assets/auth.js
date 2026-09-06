@@ -21,13 +21,18 @@ document.getElementById('loginBtn').onclick = async () => {
   if (error) { errBox.textContent = error.message; return; }
 
   // 看角色，决定跳到哪里
-  const { data: profile } = await supabase
+  const { data: profile, error: pErr } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', data.user.id)
     .single();
 
-  if (profile?.role === 'teacher') location.href = '/teacher';
+  if (pErr || !profile) {
+    errBox.textContent = '登录成功但读取 profile 失败：' + (pErr?.message || '无数据');
+    return;
+  }
+
+  if (profile.role === 'teacher') location.href = '/teacher';
   else                              location.href = '/student';
 };
 
@@ -35,8 +40,13 @@ document.getElementById('loginBtn').onclick = async () => {
 supabase.auth.getSession().then(({ data }) => {
   if (data.session) {
     supabase.from('profiles').select('role').eq('id', data.session.user.id).single()
-      .then(({ data: profile }) => {
-        if (profile?.role === 'teacher') location.href = '/teacher';
+      .then(({ data: profile, error: pErr }) => {
+        if (pErr || !profile) {
+          // profile 读不到，留着让用户手动重登，不强行跳转
+          console.warn('[auth.js] profile fetch failed:', pErr);
+          return;
+        }
+        if (profile.role === 'teacher') location.href = '/teacher';
         else                              location.href = '/student';
       });
   }

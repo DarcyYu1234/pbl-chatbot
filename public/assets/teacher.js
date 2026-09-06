@@ -23,14 +23,20 @@ async function init() {
   if (!data.session) { location.href = '/'; return; }
   session = data.session;
 
-  const { data: p } = await supabase
+  const { data: p, error: pErr } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', session.user.id)
     .single();
-  if (!p || p.role !== 'teacher') {
-    await supabase.auth.signOut();
-    location.href = '/';
+  if (pErr || !p || p.role !== 'teacher') {
+    document.body.innerHTML = `
+      <div style="padding:30px;font-family:monospace;background:#fef2f2;color:#7f1d1d;min-height:100vh">
+        <h2>教师身份校验失败</h2>
+        <p><b>session.user.id：</b><br><code style="word-break:break-all">${session.user.id}</code></p>
+        <p><b>profile 查询结果：</b></p>
+        <pre>${JSON.stringify({ profile: p, error: pErr }, null, 2)}</pre>
+        <p style="margin-top:20px">请把以上信息截图发给开发者排查。</p>
+      </div>`;
     return;
   }
   document.getElementById('userLabel').textContent = '教师：' + p.display_name;
