@@ -16,9 +16,10 @@ module.exports = async function handler(req, res) {
     const limit = Math.min(parseInt(req.query.limit || '500', 10), 2000);
 
     // 1) 拉所有学生 profile（service_role，已绕过 RLS；再过滤掉教师自己）
+    //    注意：profiles 表没有 email 列（email 在 auth.users），这里不选 email
     const { data: profiles, error: pErr } = await supabaseAdmin
       .from('profiles')
-      .select('id, role, display_name, student_code, class_label, email')
+      .select('id, role, display_name, student_code, class_label')
       .eq('role', 'student')
       .order('created_at', { ascending: true });
     if (pErr) throw pErr;

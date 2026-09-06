@@ -249,7 +249,8 @@ async function loadConversations() {
   const j = await r.json();
   const container = document.getElementById('convList');
   if (!r.ok) {
-    container.innerHTML = `<p style="color:#dc2626">加载失败：${escape(j.error || j.message || r.status)}</p>`;
+    // 优先展示真实错误消息（后端 error 字段是固定 'internal'，真实原因在 message）
+    container.innerHTML = `<p style="color:#dc2626">加载对话失败：${escape(j.message || j.error || r.status)}</p>`;
     return;
   }
   const list = j.conversations || [];
