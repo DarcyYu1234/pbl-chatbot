@@ -16,10 +16,11 @@ module.exports = async function handler(req, res) {
     requireTeacher(auth);
 
     if (req.method === 'GET') {
-      // 1) profiles 列表
+      // 1) profiles 列表（只返回学生，排除教师）
       const { data: profiles, error } = await supabaseAdmin
         .from('profiles')
         .select('id, role, display_name, student_code, class_label, created_at')
+        .eq('role', 'student')
         .order('created_at', { ascending: true });
       if (error) throw error;
       // 2) 用 service_role 拿每个 id 对应的 email
