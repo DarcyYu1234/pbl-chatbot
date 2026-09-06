@@ -11,6 +11,14 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const errBox = document.getElementById('err');
 
+// ==========================================================
+// 用户要求：每次访问登录页都必须手动输入账号密码。
+// 所以这里主动 signOut 清掉本 tab 的残留 session，
+// 即使浏览器 localStorage 里还有 supabase 的会话，也强制显示登录表单。
+// scope: 'local' 只清当前 tab，不会踢掉用户在 /teacher 或 /student 的会话。
+// ==========================================================
+supabase.auth.signOut({ scope: 'local' }).catch(() => { /* ignore */ });
+
 document.getElementById('loginBtn').onclick = async () => {
   errBox.textContent = '';
   const email    = document.getElementById('email').value.trim();
@@ -35,19 +43,3 @@ document.getElementById('loginBtn').onclick = async () => {
   if (profile.role === 'teacher') location.href = '/teacher';
   else                              location.href = '/student';
 };
-
-// 已登录则直接跳
-supabase.auth.getSession().then(({ data }) => {
-  if (data.session) {
-    supabase.from('profiles').select('role').eq('id', data.session.user.id).single()
-      .then(({ data: profile, error: pErr }) => {
-        if (pErr || !profile) {
-          // profile 读不到，留着让用户手动重登，不强行跳转
-          console.warn('[auth.js] profile fetch failed:', pErr);
-          return;
-        }
-        if (profile.role === 'teacher') location.href = '/teacher';
-        else                              location.href = '/student';
-      });
-  }
-});
