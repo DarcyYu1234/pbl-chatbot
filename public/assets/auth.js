@@ -52,14 +52,12 @@ document.getElementById('loginBtn').onclick = async () => {
   const userEmail = String(data.user.email || '').toLowerCase().trim();
   const isTeacher = profile.role === 'teacher' || TEACHER_EMAILS.includes(userEmail);
 
-  // 临时调试输出：把诊断信息打到 Console 和登录页，方便定位
+  // 临时调试输出：把诊断信息打到 Console / alert / 登录页 三处
   const dbg = `role=${profile.role} | email=${userEmail} | isTeacher=${isTeacher}`;
   console.log('[auth.js]', dbg);
-  if (errBox) errBox.textContent = dbg; // 先显示出来再跳转，让你截图
+  alert('[DEBUG]\n' + dbg);   // 强制阻塞，必须点确认才能继续跳转 → 100% 看到诊断值
+  if (errBox) errBox.textContent = dbg;
 
-  // 1.5 秒后跳转（留时间让你看 / 截图）
-  setTimeout(() => {
-    if (isTeacher) location.href = '/teacher';
-    else              location.href = '/student';
-  }, 1500);
+  if (isTeacher) location.href = '/teacher';
+  else              location.href = '/student';
 };
