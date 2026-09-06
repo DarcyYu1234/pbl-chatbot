@@ -40,6 +40,18 @@ document.getElementById('loginBtn').onclick = async () => {
     return;
   }
 
-  if (profile.role === 'teacher') location.href = '/teacher';
-  else                              location.href = '/student';
+  // ==========================================================
+  // 教师身份双判断：
+  //   1) profile.role === 'teacher'  （正常路径，由 trigger + signup 写入）
+  //   2) email 在 TEACHER_EMAILS 白名单里  （兜底，profile.role 错时仍能正确跳转）
+  // 两者满足任一即视为教师 → 跳 /teacher。
+  // 之所以需要这个兜底：因为教师账号是手动建在 auth.users 里，trigger 会自动
+  // 给 profile 写 role='student'，如果没有再 UPDATE 一次就一直是 student。
+  // ==========================================================
+  const TEACHER_EMAILS = ['yxyyxxdaisy@163.com']; // 改成你的教师邮箱
+  const userEmail = String(data.user.email || '').toLowerCase().trim();
+  const isTeacher = profile.role === 'teacher' || TEACHER_EMAILS.includes(userEmail);
+
+  if (isTeacher) location.href = '/teacher';
+  else              location.href = '/student';
 };
