@@ -47,10 +47,14 @@ document.getElementById('loginBtn').onclick = async () => {
   // 两者满足任一即视为教师 → 跳 /teacher。
   // 之所以需要这个兜底：因为教师账号是手动建在 auth.users 里，trigger 会自动
   // 给 profile 写 role='student'，如果没有再 UPDATE 一次就一直是 student。
+  //
+  // 归一化：数据库存的 email 可能带隐藏空格/全角字符，导致字符串看似相同
+  // 实则不相等。这里把空白字符全部剔除后再比对，避免漏匹配。
   // ==========================================================
   const TEACHER_EMAILS = ['yxyyxxdaisy@163.com']; // 改成你的教师邮箱
-  const userEmail = String(data.user.email || '').toLowerCase().trim();
-  const isTeacher = profile.role === 'teacher' || TEACHER_EMAILS.includes(userEmail);
+  const norm = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
+  const userEmail = norm(data.user.email);
+  const isTeacher = profile.role === 'teacher' || TEACHER_EMAILS.some(t => norm(t) === userEmail);
 
   // 临时调试输出：把诊断信息打到 Console / alert / 登录页 三处
   const dbg = `role=${profile.role} | email=${userEmail} | isTeacher=${isTeacher}`;
