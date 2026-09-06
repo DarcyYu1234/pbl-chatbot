@@ -15,6 +15,7 @@ const STAGE_DISPLAY = {
   analysis:            '③ 分析与建模',
   reflection:          '④ 反思与结论'
 };
+const STAGE_ORDER = ['problem_formulation','investigation','analysis','reflection'];
 
 let session;
 
@@ -29,8 +30,7 @@ async function init() {
     .eq('id', session.user.id)
     .single();
 
-  // 归一化白名单兜底（与 auth.js 一致）：数据库 role 被写成 student 时，
-  // 只要登录邮箱是教师邮箱也允许进入教师仪表盘。
+  // 归一化白名单兜底（与 auth.js 一致）
   const TEACHER_EMAILS = ['yxyyxxdaisy@163.com'];
   const norm = (s) => String(s || '').replace(/\s+/g, '').toLowerCase();
   const isTeacherAllowed = (p && p.role === 'teacher') ||
@@ -53,17 +53,42 @@ async function init() {
     location.href = '/';
   };
 
+  // 第一次加载（按顺序：控制 → 学生 → 日志 → 对话）
   await loadCtrl();
   await loadStudents();
   await loadLogs();
+  await loadConversations();
 
-  document.getElementById('toggleBot').onchange     = onToggle;
-  document.getElementById('applyStageBtn').onclick   = onStage;
-  document.getElementById('createBtn').onclick       = onCreate;
-  document.getElementById('refreshLogs').onclick     = loadLogs;
+  // 事件绑定 —— 按钮一次刷新两个面板（API 日志 + 对话记录）
+  document.getElementById('toggleBot').onchange       = onToggle;
+  document.getElementById('applyStageBtn').onclick     = onStage;
+  document.getElementById('createBtn').onclick         = onCreate;
+  document.getElementById('refreshLogs').onclick       = refreshAll;
+  document.getElementById('refreshConvs').onclick      = refreshAll;
 
-  // 每 15 秒自动刷新控制状态 + 日志
-  setInterval(async () => { await loadCtrl(); await loadLogs(); }, 15000);
+  // 自动刷新：每 15 秒一次，UI 上有明显视觉反馈
+  setInterval(refreshAll, 15000);
+}
+
+async function refreshAll() {
+  flashRefreshBtn();
+  await Promise.all([
+    loadCtrl(),
+    loadLogs(),
+    loadConversations(),
+    loadStudents()
+  ]);
+}
+
+function flashRefreshBtn() {
+  ['refreshLogs','refreshConvs'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    const orig = b.dataset.orig || b.textContent;
+    b.dataset.orig = orig;
+    b.textContent = '⏳ 刷新中…';
+    setTimeout(() => { b.textContent = orig; }, 800);
+  });
 }
 
 async function authedFetch(path, opts = {}) {
@@ -144,7 +169,7 @@ async function loadStudents() {
   });
 }
 
-// 重置某个学生的密码为新的 6 位数字，弹出新密码给教师抄给学生
+// 重置某个学生的密码为新的 6 位数字
 async function onResetPassword(id, name) {
   const newPwd = String(Math.floor(100000 + Math.random() * 900000));
   if (!confirm(`将把「${name}」的密码重置为：\n\n${newPwd}\n\n（请抄给学生后再点确定）`)) return;
@@ -180,7 +205,6 @@ async function onCreate() {
     return;
   }
   msg.innerHTML = `✅ 已创建 <code>${escape(email)}</code>，初始密码：<code>${escape(password)}</code>（请把这两条信息告知学生）`;
-  // 清空表单
   ['newEmail','newName','newCode','newClass','newPwd'].forEach(id => {
     document.getElementById(id).value = '';
   });
@@ -190,19 +214,18 @@ async function onCreate() {
 async function loadLogs() {
   const r = await authedFetch('/api/admin/logs?limit=200');
   const j = await r.json();
-  // 调试：把 API 原始响应打到页面底部，方便排查"看不到日志"
-  let dbg = document.getElementById('logsDbg');
-  if (!dbg) {
-    dbg = document.createElement('pre');
-    dbg.id = 'logsDbg';
-    dbg.style.cssText = 'margin-top:8px;padding:8px;background:#fef9c3;color:#713f12;font-size:11px;border-radius:4px;overflow:auto;max-height:120px';
-    document.querySelector('#logsTbody').parentElement.parentElement.appendChild(dbg);
-  }
-  dbg.textContent = `[DEBUG loadLogs] status=${r.status} ok=${r.ok} | logs.length=${(j.logs || []).length} | err=${j.error || '-'} | msg=${j.message || '-'} | 完整响应=${JSON.stringify(j).slice(0, 500)}`;
-
   const tbody = document.getElementById('logsTbody');
   tbody.innerHTML = '';
-  for (const l of (j.logs || [])) {
+  if (!r.ok) {
+    tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">加载失败：${escape(j.error || j.message || r.status)}</td></tr>`;
+    return;
+  }
+  const logs = j.logs || [];
+  if (logs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">暂无 API 调用记录（学生还没有发过消息）</td></tr>`;
+    return;
+  }
+  for (const l of logs) {
     const tr = document.createElement('tr');
     const when = new Date(l.created_at).toLocaleString();
     tr.innerHTML = `
@@ -218,6 +241,91 @@ async function loadLogs() {
     `;
     tbody.appendChild(tr);
   }
+}
+
+// ============== 新增：加载学生对话记录 ==============
+async function loadConversations() {
+  const r = await authedFetch('/api/admin/conversations?limit=500');
+  const j = await r.json();
+  const container = document.getElementById('convList');
+  if (!r.ok) {
+    container.innerHTML = `<p style="color:#dc2626">加载失败：${escape(j.error || j.message || r.status)}</p>`;
+    return;
+  }
+  const list = j.conversations || [];
+  if (list.length === 0) {
+    container.innerHTML = `<p class="muted" style="text-align:center;padding:30px">暂无学生记录。等学生注册并开始对话后这里会显示内容。</p>`;
+    return;
+  }
+  container.innerHTML = '';
+  for (const g of list) {
+    container.appendChild(renderStudentCard(g));
+  }
+}
+
+function renderStudentCard(g) {
+  const card = document.createElement('div');
+  card.style.cssText = 'border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden;background:#fff';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'padding:12px 16px;background:#f8fafc;cursor:pointer;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)';
+  const hasMsg = g.total_messages > 0;
+  header.innerHTML = `
+    <div>
+      <b style="font-size:14px">${escape(g.display_name || '(未命名)')}</b>
+      <span class="muted small" style="margin-left:8px">${escape(g.email || '')}</span>
+      <span class="muted small" style="margin-left:8px">${escape(g.student_code || '')}</span>
+      <span class="muted small" style="margin-left:8px">${escape(g.class_label || '')}</span>
+    </div>
+    <div>
+      <span class="muted small">${g.total_messages} 条消息</span>
+      <span style="margin-left:12px">${hasMsg ? '▼ 展开' : '（无消息）'}</span>
+    </div>
+  `;
+
+  const body = document.createElement('div');
+  body.style.cssText = 'display:none;padding:12px 16px;background:#fff;max-height:600px;overflow-y:auto';
+
+  if (!hasMsg) {
+    body.innerHTML = `<p class="muted small" style="text-align:center;padding:20px">该学生还没和 chatbot 对话过</p>`;
+  } else {
+    let html = '';
+    for (const stage of STAGE_ORDER) {
+      const msgs = g.stages[stage];
+      if (!msgs || msgs.length === 0) continue;
+      html += `<h4 style="margin:16px 0 8px;color:var(--primary)">${STAGE_DISPLAY[stage]} <span class="muted small">(${msgs.length} 条)</span></h4>`;
+      html += '<div style="display:flex;flex-direction:column;gap:8px">';
+      for (const m of msgs) {
+        const isUser = m.role === 'user';
+        html += `
+          <div style="display:flex;${isUser ? 'justify-content:flex-end' : 'justify-content:flex-start'}">
+            <div style="max-width:75%;padding:8px 12px;border-radius:8px;
+              background:${isUser ? '#dbeafe' : '#f1f5f9'};
+              color:#0f172a;
+              font-size:13px;line-height:1.5;
+              white-space:pre-wrap;word-break:break-word">
+              <div class="muted" style="font-size:10px;margin-bottom:4px">
+                ${isUser ? '🎒 学生' : '🤖 助手'} · ${new Date(m.created_at).toLocaleString()}
+              </div>
+              ${escape(m.content)}
+            </div>
+          </div>`;
+      }
+      html += '</div>';
+    }
+    body.innerHTML = html;
+  }
+
+  header.onclick = () => {
+    if (!hasMsg) return;
+    const shown = body.style.display !== 'none';
+    body.style.display = shown ? 'none' : 'block';
+    header.lastElementChild.firstElementChild.nextSibling.textContent = shown ? '▼ 展开' : '▲ 收起';
+  };
+
+  card.appendChild(header);
+  card.appendChild(body);
+  return card;
 }
 
 function escape(s) {
