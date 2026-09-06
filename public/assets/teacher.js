@@ -52,6 +52,7 @@ async function init() {
   document.getElementById('toggleBot').onchange     = onToggle;
   document.getElementById('applyStageBtn').onclick   = onStage;
   document.getElementById('createBtn').onclick       = onCreate;
+  document.getElementById('bulkCreateBtn').onclick   = onBulkCreate;
   document.getElementById('refreshLogs').onclick     = loadLogs;
 
   // 每 15 秒自动刷新控制状态 + 日志
@@ -157,6 +158,130 @@ async function onCreate() {
     document.getElementById(id).value = '';
   });
   loadStudents();
+}
+
+// ============ 批量创建学生账号 ============
+async function onBulkCreate() {
+  const raw = document.getElementById('bulkInput').value;
+  const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (lines.length === 0) { alert('请至少粘贴一行：姓名,班级'); return; }
+  if (lines.length > 50)  { alert(`最多 50 行，当前 ${lines.length} 行，请删减后再提交`); return; }
+
+  const entries = lines.map(parseBulkLine).filter(e => e.display_name);
+
+  const btn = document.getElementById('bulkCreateBtn');
+  btn.disabled = true; btn.textContent = '生成中…';
+
+  try {
+    const r = await authedFetch('/api/admin/students_bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries })
+    });
+    const j = await r.json();
+    if (!r.ok) {
+      alert('批量创建失败：' + (j.error || '未知错误'));
+      return;
+    }
+    renderBulkResult(j);
+    if (j.ok_count > 0) loadStudents();
+  } catch (e) {
+    alert('网络异常：' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '批量生成账号';
+  }
+}
+
+function parseBulkLine(line) {
+  // 支持中英文逗号 / 多个空格 / 制表符分隔
+  const parts = line.split(/[,，\t]|\s{2,}/).map(s => s.trim()).filter(Boolean);
+  return { display_name: parts[0] || '', class_label: parts[1] || '' };
+}
+
+function renderBulkResult(resp) {
+  const div = document.getElementById('bulkResult');
+  if (!resp || !Array.isArray(resp.results)) {
+    div.innerHTML = '<p style="color:var(--err)">响应异常，请稍后重试。</p>';
+    return;
+  }
+  const ok   = resp.results.filter(r =>  r.ok);
+  const fail = resp.results.filter(r => !r.ok);
+
+  let html = `<p style="margin-top:12px">
+    ✅ 成功 <b>${resp.ok_count}</b> 个${fail.length ? `，失败 <b style="color:var(--err)">${resp.fail_count}</b> 个` : ''}
+  </p>`;
+
+  if (ok.length > 0) {
+    html += `
+      <div class="row" style="margin:6px 0">
+        <button id="bulkCopyTsv">📋 复制全部（TSV，贴 Excel）</button>
+        <button id="bulkCopyCsv">📋 复制全部（CSV）</button>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>姓名</th><th>班级</th><th>学号</th><th>邮箱</th><th>密码</th></tr></thead>
+        <tbody>
+          ${ok.map(r => `
+            <tr>
+              <td>${escape(r.display_name)}</td>
+              <td>${escape(r.class_label || '')}</td>
+              <td><code>${r.student_code}</code></td>
+              <td><code>${r.email}</code></td>
+              <td><code>${r.password}</code></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  }
+  if (fail.length > 0) {
+    html += `
+      <p style="color:var(--err);margin-top:14px">失败明细（修正后重新粘贴这几行再提交即可）：</p>
+      <table class="tbl">
+        <thead><tr><th>姓名</th><th>班级</th><th>原因</th></tr></thead>
+        <tbody>
+          ${fail.map(r => `
+            <tr>
+              <td>${escape(r.display_name)}</td>
+              <td>${escape(r.class_label || '')}</td>
+              <td style="color:var(--err)">${escape(r.error || '')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  }
+  div.innerHTML = html;
+
+  if (ok.length > 0) {
+    const header = ['姓名', '班级', '学号', '邮箱', '密码'];
+    const tsv = [header.join('\t')]
+      .concat(ok.map(r => [r.display_name, r.class_label || '', r.student_code, r.email, r.password].join('\t')))
+      .join('\n');
+    const csv = [header.join(',')]
+      .concat(ok.map(r => [csvCell(r.display_name), csvCell(r.class_label || ''), r.student_code, r.email, r.password].join(',')))
+      .join('\n');
+    document.getElementById('bulkCopyTsv').onclick = () => copyBulk(tsv, 'TSV');
+    document.getElementById('bulkCopyCsv').onclick = () => copyBulk(csv, 'CSV');
+  }
+}
+
+function csvCell(s) {
+  const str = String(s == null ? '' : s);
+  return /[,"\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+}
+
+async function copyBulk(text, label) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const btn = document.activeElement;
+    const orig = btn ? btn.textContent : '';
+    if (btn) { btn.textContent = '✅ 已复制 ' + label; setTimeout(() => btn.textContent = orig, 1500); }
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); alert('已复制 ' + label); } catch { prompt('请手动复制：', text); }
+    document.body.removeChild(ta);
+  }
 }
 
 async function loadLogs() {

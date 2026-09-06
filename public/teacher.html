@@ -63,6 +63,20 @@
           <span id="createTip" class="muted small">创建后请把邮箱 + 初始密码告知学生。</span>
         </div>
       </details>
+
+      <details>
+        <summary>📋 批量创建（≤ 50 个，自动生成 6 位数字账号 + 密码）</summary>
+        <p class="muted small" style="margin-top:8px">
+          每行一名学生：<code>姓名,班级</code>（班级可省略）。系统自动分配 6 位数字学号，邮箱为 <code>{学号}@pbl.local</code>，初始密码与学号相同——学生只需记一个 6 位数字即可登录。
+        </p>
+        <textarea id="bulkInput" rows="8"
+          placeholder="张三,高一1班&#10;李四,高一1班&#10;王五,高一2班&#10;赵六"></textarea>
+        <div class="row" style="margin-top:8px">
+          <button id="bulkCreateBtn">批量生成账号</button>
+          <span class="muted small">生成后点下方「复制」按钮，把账号信息发到群里或抄给学生。</span>
+        </div>
+        <div id="bulkResult"></div>
+      </details>
       <p id="studentMsg" class="muted small"></p>
     </section>
 
