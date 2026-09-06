@@ -2,8 +2,8 @@
 // =========================================================
 //  ⚠️ 这两行必须和 auth.js 里完全一致 —— 在 Vercel/Supabase 建好项目后替换：
 // =========================================================
-const SUPABASE_URL     = 'https://YOUR-PROJECT.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+const SUPABASE_URL     = 'https://nlbsaevhqowzonhkkejj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sYnNhZXZocW93em9uaGtrZWpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NzYzMTgsImV4cCI6MjEwNDI1MjMxOH0.YnGByKNooge2dLkS8RBW30YzGqbnyqBZ8ufWgvs7CXM';
 // =========================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
