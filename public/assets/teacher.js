@@ -231,9 +231,11 @@ async function loadLogs() {
   for (const l of logs) {
     const tr = document.createElement('tr');
     const when = new Date(l.created_at).toLocaleString();
+    // 学生列优先显示「姓名」，次选 student_code / student_id 前 8 位
+    const who = l.display_name || l.student_code || (l.student_id ? l.student_id.slice(0,8) : '—');
     tr.innerHTML = `
       <td>${when}</td>
-      <td>${escape(l.student_code || (l.student_id ? l.student_id.slice(0,8) : '—') || '—')}</td>
+      <td>${escape(who)}</td>
       <td>${STAGE_DISPLAY[l.stage] || l.stage || '—'}</td>
       <td>${l.prompt_tokens ?? '—'}</td>
       <td>${l.completion_tokens ?? '—'}</td>
@@ -372,10 +374,11 @@ function stamp() {
 async function downloadApiLogs() {
   const logs = window.__logsCache || [];
   if (logs.length === 0) { alert('当前没有可导出的 API 调用记录（先让学生发几条消息）'); return; }
-  const headers = ['时间','学生','阶段','输入tokens','输出tokens','总tokens','延迟(ms)','状态码','错误'];
+  const headers = ['时间','学生姓名','学号','阶段','输入tokens','输出tokens','总tokens','延迟(ms)','状态码','错误'];
   const rows = logs.map(l => [
     l.created_at,
-    l.student_code || (l.student_id ? l.student_id.slice(0,8) : ''),
+    l.display_name || l.student_code || (l.student_id ? l.student_id.slice(0,8) : ''),
+    l.student_code || '',
     STAGE_DISPLAY[l.stage] || l.stage || '',
     l.prompt_tokens ?? '',
     l.completion_tokens ?? '',
