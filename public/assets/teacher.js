@@ -142,12 +142,13 @@ async function loadStudents() {
   tbody.innerHTML = '';
   for (const s of (j.students || [])) {
     const tr = document.createElement('tr');
+    tr.dataset.id = s.id;
     const when = new Date(s.created_at).toLocaleDateString();
     tr.innerHTML = `
       <td>${escape(s.email)}</td>
-      <td>${escape(s.display_name)}</td>
-      <td>${escape(s.student_code || '')}</td>
-      <td>${escape(s.class_label || '')}</td>
+      <td class="editable" data-field="display_name">${escape(s.display_name)}<span class="edit-hint"> ✎</span></td>
+      <td class="editable" data-field="student_code">${escape(s.student_code || '')}<span class="edit-hint">${s.student_code ? ' ✎' : ' 点击填学号'}</span></td>
+      <td class="editable" data-field="class_label">${escape(s.class_label || '')}<span class="edit-hint">${s.class_label ? ' ✎' : ' 点击填班级'}</span></td>
       <td>${when}</td>
       <td>
         <button data-id="${s.id}" data-name="${escape(s.display_name)}" class="reset">🔑 重置密码</button>
@@ -156,6 +157,10 @@ async function loadStudents() {
     `;
     tbody.appendChild(tr);
   }
+  // 行内编辑：点击单元格 → 输入框 → 回车保存 / Esc 取消 / blur 失焦保存
+  tbody.querySelectorAll('td.editable').forEach(td => {
+    td.addEventListener('click', () => startEdit(td));
+  });
   tbody.querySelectorAll('.reset').forEach(btn => {
     btn.onclick = () => onResetPassword(btn.dataset.id, btn.dataset.name);
   });
@@ -169,6 +174,52 @@ async function loadStudents() {
       else alert('删除失败');
     };
   });
+}
+
+// 行内编辑：把 td 变成 input，保存/回车/Esc 都有反馈
+function startEdit(td) {
+  if (td.classList.contains('editing')) return;
+  const tr = td.parentElement;
+  const id = tr.dataset.id;
+  const field = td.dataset.field;
+  const oldVal = td.firstChild ? td.firstChild.textContent : '';
+  td.classList.add('editing');
+  td.innerHTML = `<input type="text" class="cell-input" value="${escape(oldVal)}" placeholder="${placeholderOf(field)}">`;
+  const input = td.querySelector('input');
+  input.focus(); input.select();
+  let done = false;
+  const finish = async (save) => {
+    if (done) return; done = true;
+    const newVal = input.value.trim();
+    td.classList.remove('editing');
+    if (save && newVal !== oldVal) {
+      // 保存
+      const r = await authedFetch('/api/admin/students', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, [field]: newVal || null })
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        alert('保存失败：' + (j.message || j.error || r.status));
+        td.innerHTML = `${escape(oldVal)}<span class="edit-hint"> ✎</span>`;
+        return;
+      }
+      // 成功：保留纯文本 + 编辑提示
+      td.innerHTML = `${escape(newVal)}<span class="edit-hint">${newVal ? ' ✎' : ' ' + placeholderOf(field)}</span>`;
+    } else {
+      td.innerHTML = `${escape(oldVal)}<span class="edit-hint">${oldVal ? ' ✎' : ' ' + placeholderOf(field)}</span>`;
+    }
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+function placeholderOf(field) {
+  return field === 'student_code' ? '点击填学号' : field === 'class_label' ? '点击填班级' : '';
 }
 
 // 重置某个学生的密码为新的 6 位数字

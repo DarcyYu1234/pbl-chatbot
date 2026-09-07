@@ -122,3 +122,21 @@ select {
   padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
   font-size: 13px;
 }
+
+/* 学生表行内编辑 */
+td.editable {
+  cursor: pointer;
+  position: relative;
+  transition: background 0.15s;
+}
+td.editable:hover { background: #eff6ff; }
+td.editable .edit-hint { color: var(--muted); font-size: 11px; opacity: 0; transition: opacity 0.15s; }
+td.editable:hover .edit-hint { opacity: 0.85; }
+td.editable.editing { padding: 4px 6px; background: #fff; }
+td.editable.editing .edit-hint { display: none; }
+td .cell-input {
+  width: 100%; padding: 4px 6px;
+  border: 1px solid var(--primary); border-radius: 4px;
+  font-size: 13px; outline: none;
+  background: #fff;
+}
