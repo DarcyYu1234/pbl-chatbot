@@ -274,13 +274,13 @@ async function loadLogs() {
   const tbody = document.getElementById('logsTbody');
   tbody.innerHTML = '';
   if (!r.ok) {
-    tbody.innerHTML = `<tr><td colspan="7" style="color:#dc2626">加载失败：${escape(j.error || j.message || r.status)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="color:#dc2626">加载失败：${escape(j.error || j.message || r.status)}</td></tr>`;
     return;
   }
   const logs = j.logs || [];
   window.__logsCache = logs; // 缓存原始日志，供"下载 API 记录"使用
   if (logs.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">暂无 API 调用记录（学生还没有发过消息）</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" class="muted" style="text-align:center;padding:20px">暂无 API 调用记录（学生还没有发过消息）</td></tr>`;
     return;
   }
   for (const l of logs) {
@@ -288,6 +288,11 @@ async function loadLogs() {
     const when = new Date(l.created_at).toLocaleString();
     // 学生列优先显示「姓名」，次选 student_code / student_id 前 8 位
     const who = l.display_name || l.student_code || (l.student_id ? l.student_id.slice(0,8) : '—');
+    // 研究参数三件套（可能为空表示老数据 / 老版本写入）
+    const ver = l.system_prompt_version ? `<code>${escape(l.system_prompt_version)}</code>` : '<span class="muted">—</span>';
+    const mdl = l.model ? `<code>${escape(l.model)}</code>` : '<span class="muted">—</span>';
+    const tmp = (l.temperature !== null && l.temperature !== undefined) ? Number(l.temperature).toFixed(2) : null;
+    const tmpCell = tmp !== null ? `<code>${tmp}</code>` : '<span class="muted">—</span>';
     tr.innerHTML = `
       <td>${when}</td>
       <td>${escape(who)}</td>
@@ -298,6 +303,9 @@ async function loadLogs() {
       <td style="color:${l.status_code === 200 ? '#15803d' : '#dc2626'}">
         ${l.status_code}${l.error ? ` · ${escape((l.error || '').slice(0, 40))}` : ''}
       </td>
+      <td>${ver}</td>
+      <td>${mdl}</td>
+      <td>${tmpCell}</td>
     `;
     tbody.appendChild(tr);
   }
