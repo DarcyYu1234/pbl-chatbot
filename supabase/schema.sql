@@ -26,12 +26,19 @@ create table if not exists public.conversations (
 create index if not exists idx_conv_student_stage
   on public.conversations(student_id, stage, created_at);
 
--- 3. api_logs: 每次 DeepSeek 调用的完整记录（教师可见）
+-- 3. api_logs: 每次 DeepSeek 调用的完整记录（教师可见）——教学分析级
 create table if not exists public.api_logs (
   id                bigserial primary key,
   student_id        uuid references public.profiles(id) on delete set null,
   student_code      text,
   stage             text,
+  -- 教学分析字段：学生原话 / AI 回答 / 规则版本 / 生成配置
+  student_message   text,
+  ai_reply          text,
+  system_prompt_version text,
+  model             text,
+  temperature       real,
+  max_tokens        int,
   prompt_tokens     int,
   completion_tokens int,
   total_tokens      int,
@@ -43,6 +50,16 @@ create table if not exists public.api_logs (
 
 create index if not exists idx_logs_created
   on public.api_logs(created_at desc);
+
+-- 4a. system_prompt_versions: 每版规则全文快照（回看"当时 AI 按什么规则回答"）
+create table if not exists public.system_prompt_versions (
+  id         bigserial primary key,
+  stage      text not null,
+  version    text not null,
+  content    text not null,
+  created_at timestamptz default now(),
+  unique (stage, version)
+);
 
 -- 4. settings: 教师控制的全局开关（chatbot 启停、当前阶段）
 create table if not exists public.settings (

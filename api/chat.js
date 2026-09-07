@@ -2,7 +2,7 @@
 const { authenticate, requireStudent } = require('./_lib/auth');
 const { supabaseAdmin } = require('./_lib/supabase');
 const { chat } = require('./_lib/deepseek');
-const { getPrompt, STAGE_DISPLAY } = require('./_lib/prompts');
+const { getPrompt, getPromptMeta, STAGE_DISPLAY } = require('./_lib/prompts');
 const { logApiCall } = require('./_lib/logger');
 
 module.exports = async function handler(req, res) {
@@ -48,6 +48,7 @@ module.exports = async function handler(req, res) {
       .limit(40);
 
     const systemPrompt = getPrompt(stage);
+    const promptMeta = getPromptMeta(stage); // { stage, text, version } 供日志记录规则版本
     const messages = [
       { role: 'system', content: systemPrompt },
       ...(history || []).map(h => ({ role: h.role, content: h.content })),
@@ -69,9 +70,15 @@ module.exports = async function handler(req, res) {
     } catch (e) {
       errMsg = e.message;
       await logApiCall({
-        studentId:    auth.user.id,
-        studentCode:  auth.profile.student_code,
+        studentId:          auth.user.id,
+        studentCode:        auth.profile.student_code,
         stage,
+        studentMessage:     userText,
+        aiReply:            null,
+        systemPromptVersion: promptMeta.version,
+        model:              null,
+        temperature:        null,
+        maxTokens:          null,
         usage: null,
         latency: 0,
         statusCode: 502,
@@ -88,11 +95,17 @@ module.exports = async function handler(req, res) {
       content: resp.content
     });
 
-    // 7) 写日志
+    // 7) 写日志（研究级：完整输入输出 + 生成配置 + 规则版本）
     await logApiCall({
-      studentId:    auth.user.id,
-      studentCode:  auth.profile.student_code,
+      studentId:          auth.user.id,
+      studentCode:        auth.profile.student_code,
       stage,
+      studentMessage:     userText,
+      aiReply:            resp.content,
+      systemPromptVersion: promptMeta.version,
+      model:              resp.model,
+      temperature:        resp.temperature,
+      maxTokens:          resp.max_tokens,
       usage:        resp.usage,
       latency:      resp.latency,
       statusCode:   200,

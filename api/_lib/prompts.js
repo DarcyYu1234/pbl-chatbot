@@ -2,6 +2,15 @@
 // 与论文 §3.2 Distributed Epistemic Agency、§4.2 Design Principles
 // （Support-not-Supplant, Question-not-Answer）严格对齐。
 
+// 每次修改某个阶段的规则时，把对应版本号 +1（例如 '1.1'）。
+// 这样 api_logs 只需记录版本号，回看时就能定位到当时用的哪一版规则。
+const PROMPT_VERSION = {
+  problem_formulation: '1.0',
+  investigation:       '1.0',
+  analysis:            '1.0',
+  reflection:          '1.0'
+};
+
 const STAGE_PROMPTS = {
   problem_formulation: `你是"探究搭子"，一位15年以上经验的PBL教学专家，正在和一名初中（七至九年级）学生一起做科学探究项目。
 
@@ -95,4 +104,14 @@ function getPrompt(stage) {
   return STAGE_PROMPTS[stage] || STAGE_PROMPTS.problem_formulation;
 }
 
-module.exports = { STAGE_PROMPTS, STAGE_DISPLAY, getPrompt };
+// 返回某阶段规则全文 + 当前版本号。用于写 api_logs 时留档版本。
+function getPromptMeta(stage) {
+  const s = STAGE_PROMPTS[stage] ? stage : 'problem_formulation';
+  return {
+    stage,
+    text:    STAGE_PROMPTS[s],
+    version: PROMPT_VERSION[s] || '1.0'
+  };
+}
+
+module.exports = { STAGE_PROMPTS, STAGE_DISPLAY, PROMPT_VERSION, getPrompt, getPromptMeta };

@@ -8,17 +8,24 @@ const client = new OpenAI({
 
 async function chat(messages, opts = {}) {
   const start = Date.now();
+  const model       = opts.model || 'deepseek-chat';
+  const temperature = opts.temperature ?? 0.6;
+  const maxTokens   = opts.max_tokens ?? 1500;
   const resp = await client.chat.completions.create({
-    model: opts.model || 'deepseek-chat',
+    model,
     messages,
-    temperature: opts.temperature ?? 0.6,
-    max_tokens: opts.max_tokens ?? 1500
+    temperature,
+    max_tokens: maxTokens
   });
   const latency = Date.now() - start;
   return {
     content: resp.choices[0].message.content,
     usage: resp.usage,
-    latency
+    latency,
+    // 回传实际生效的生成配置，供 api_logs 记录、研究时回看"这个回答是怎么配出来的"
+    model,
+    temperature,
+    max_tokens: maxTokens
   };
 }
 

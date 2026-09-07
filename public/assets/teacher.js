@@ -67,6 +67,10 @@ async function init() {
   document.getElementById('refreshConvs').onclick      = refreshAll;
   document.getElementById('exportLogsBtn').onclick     = () => downloadApiLogs();
   document.getElementById('exportConvsBtn').onclick    = () => downloadConversations();
+  const b1 = document.getElementById('exportConvJsonBtn');
+  const b2 = document.getElementById('exportLogJsonBtn');
+  if (b1) b1.onclick = () => downloadConvJson();
+  if (b2) b2.onclick = () => downloadLogJson();
 
   // 自动刷新：每 15 秒一次，UI 上有明显视觉反馈
   setInterval(refreshAll, 15000);
@@ -421,54 +425,54 @@ function stamp() {
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
 }
 
-// 导出 1：API 调用日志（元数据）
-async function downloadApiLogs() {
-  const logs = window.__logsCache || [];
-  if (logs.length === 0) { alert('当前没有可导出的 API 调用记录（先让学生发几条消息）'); return; }
-  const headers = ['时间','学生姓名','学号','阶段','输入tokens','输出tokens','总tokens','延迟(ms)','状态码','错误'];
-  const rows = logs.map(l => [
-    l.created_at,
-    l.display_name || l.student_code || (l.student_id ? l.student_id.slice(0,8) : ''),
-    l.student_code || '',
-    STAGE_DISPLAY[l.stage] || l.stage || '',
-    l.prompt_tokens ?? '',
-    l.completion_tokens ?? '',
-    l.total_tokens ?? '',
-    l.latency_ms ?? '',
-    l.status_code ?? '',
-    l.error || ''
-  ]);
-  downloadCsv(`PBL_API日志_${stamp()}.csv`, headers, rows);
+// ============================================================
+// 研究数据下载（走后端 /api/admin/export，拿到完整数据：
+// 对话明细含 email；API 调用明细含学生原话+AI回答+生成配置+规则版本）
+// ============================================================
+
+// 带鉴权地请求后端导出接口，把返回的文件保存到本地
+async function downloadFromExport(kind, format, button) {
+  if (button) { const t = button.textContent; button.textContent = '⏳ 生成中…'; button.disabled = true; }
+  try {
+    const r = await authedFetch(`/api/admin/export?kind=${kind}&format=${format}`);
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      alert('导出失败：' + (j.message || j.error || r.status));
+      return;
+    }
+    // 从 Content-Disposition 拿文件名，失败则用默认名
+    const cd = r.headers.get('Content-Disposition') || '';
+    const m = cd.match(/filename="?([^";]+)/);
+    const filename = m ? decodeURIComponent(m[1]) : (format === 'csv' ? 'PBL_研究导出.csv' : 'PBL_研究导出.json');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (e) {
+    alert('导出出错：' + e.message);
+  } finally {
+    if (button) { button.textContent = button.dataset.txt || '下载'; button.disabled = false; }
+  }
 }
 
-// 导出 2：学生对话记录（逐条，含全部 4 阶段）
+// 导出 1：API 调用日志（研究级：学生原话 + AI 回答 + 生成配置）
+async function downloadApiLogs() {
+  downloadFromExport('apilogs', 'csv', document.getElementById('exportLogsBtn'));
+}
+
+// 导出 2：学生对话记录（完整、含 email、全量不限条数）
 async function downloadConversations() {
-  const list = window.__convsCache || [];
-  let total = list.reduce((n, g) => {
-    for (const k of Object.keys(g.stages || {})) n += g.stages[k].length;
-    return n;
-  }, 0);
-  if (total === 0) { alert('当前没有可导出的对话记录（先让学生发几条消息）'); return; }
-  const headers = ['学生姓名','学号','班级','阶段','发送方','内容','时间'];
-  const rows = [];
-  for (const g of list) {
-    for (const stage of STAGE_ORDER) {
-      const msgs = g.stages[stage];
-      if (!msgs || msgs.length === 0) continue;
-      for (const m of msgs) {
-        rows.push([
-          g.display_name || '',
-          g.student_code || '',
-          g.class_label || '',
-          STAGE_DISPLAY[stage] || stage,
-          m.role === 'user' ? '学生' : '助手',
-          m.content,
-          m.created_at
-        ]);
-      }
-    }
-  }
-  downloadCsv(`PBL_对话记录_${stamp()}.csv`, headers, rows);
+  downloadFromExport('conversations', 'csv', document.getElementById('exportConvsBtn'));
+}
+
+// 导出 3/4：JSON 研究数据（对话 / API 调用），供写脚本 / 质性分析
+async function downloadConvJson() {
+  downloadFromExport('conversations', 'json', document.getElementById('exportConvJsonBtn'));
+}
+async function downloadLogJson() {
+  downloadFromExport('apilogs', 'json', document.getElementById('exportLogJsonBtn'));
 }
 
 init();
