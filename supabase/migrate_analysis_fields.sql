@@ -20,11 +20,16 @@ alter table public.api_logs
 create table if not exists public.system_prompt_versions (
   id         bigserial primary key,
   stage      text not null,
+  stage_name text,
   version    text not null,
   content    text not null,
   created_at timestamptz default now(),
   unique (stage, version)
 );
+
+-- 已部署的老表若无 stage_name 列, 一次性补上 (幂等)
+alter table public.system_prompt_versions
+  add column if not exists stage_name text;
 
 alter table public.system_prompt_versions enable row level security;
 drop policy if exists "anyone read prompt versions" on public.system_prompt_versions;

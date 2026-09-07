@@ -55,6 +55,7 @@ create index if not exists idx_logs_created
 create table if not exists public.system_prompt_versions (
   id         bigserial primary key,
   stage      text not null,
+  stage_name text,
   version    text not null,
   content    text not null,
   created_at timestamptz default now(),
