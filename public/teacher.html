@@ -68,9 +68,12 @@
 
     <!-- ③ API 调用日志 -->
     <section class="panel">
-      <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">③ API 调用日志</h2>
-        <button id="refreshLogs" style="margin:0">🔄 刷新全部</button>
+        <div style="display:flex;gap:8px">
+          <button id="exportLogsBtn" style="margin:0" title="把当前 API 日志导出为 Excel 可打开的 CSV">⬇ 下载 API 记录</button>
+          <button id="refreshLogs" style="margin:0">🔄 刷新全部</button>
+        </div>
       </div>
       <p class="muted small">显示最近 200 次 DeepSeek 调用（按时间倒序）。每 15 秒自动刷新。</p>
       <table class="tbl">
@@ -87,9 +90,12 @@
 
     <!-- ④ 学生对话记录 -->
     <section class="panel">
-      <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <h2 style="margin:0">④ 学生对话记录</h2>
-        <button id="refreshConvs" style="margin:0">🔄 刷新全部</button>
+        <div style="display:flex;gap:8px">
+          <button id="exportConvsBtn" style="margin:0" title="把全部学生与 chatbot 的对话导出为 Excel 可打开的 CSV">⬇ 下载对话记录</button>
+          <button id="refreshConvs" style="margin:0">🔄 刷新全部</button>
+        </div>
       </div>
       <p class="muted small">所有学生 × 四个阶段的完整对话（按学生活跃度排序）。点击学生行展开查看。</p>
       <div id="convList"></div>

@@ -65,6 +65,8 @@ async function init() {
   document.getElementById('createBtn').onclick         = onCreate;
   document.getElementById('refreshLogs').onclick       = refreshAll;
   document.getElementById('refreshConvs').onclick      = refreshAll;
+  document.getElementById('exportLogsBtn').onclick     = () => downloadApiLogs();
+  document.getElementById('exportConvsBtn').onclick    = () => downloadConversations();
 
   // 自动刷新：每 15 秒一次，UI 上有明显视觉反馈
   setInterval(refreshAll, 15000);
@@ -221,6 +223,7 @@ async function loadLogs() {
     return;
   }
   const logs = j.logs || [];
+  window.__logsCache = logs; // 缓存原始日志，供"下载 API 记录"使用
   if (logs.length === 0) {
     tbody.innerHTML = `<tr><td colspan="7" class="muted" style="text-align:center;padding:20px">暂无 API 调用记录（学生还没有发过消息）</td></tr>`;
     return;
@@ -254,6 +257,7 @@ async function loadConversations() {
     return;
   }
   const list = j.conversations || [];
+  window.__convsCache = list; // 缓存原始对话数据，供"下载对话记录"使用
   if (list.length === 0) {
     container.innerHTML = `<p class="muted" style="text-align:center;padding:30px">暂无学生记录。等学生注册并开始对话后这里会显示内容。</p>`;
     return;
@@ -332,6 +336,85 @@ function renderStudentCard(g) {
 function escape(s) {
   return String(s || '').replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ============================================================
+// 一键导出（CSV，UTF-8 BOM，Excel 打开不乱码）
+// ============================================================
+
+// CSV 单元格转义：含逗号/引号/换行时用引号包裹
+function csvCell(v) {
+  const s = v == null ? '' : String(v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+// 生成并触发浏览器下载一个 CSV 文件
+function downloadCsv(filename, headers, rows) {
+  const BOM = '\uFEFF'; // UTF-8 BOM，保证 Excel 正确识别中文
+  const content = BOM + [headers.map(csvCell).join(','), ...rows.map(r => r.map(csvCell).join(','))].join('\r\n');
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function stamp() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+// 导出 1：API 调用日志（元数据）
+async function downloadApiLogs() {
+  const logs = window.__logsCache || [];
+  if (logs.length === 0) { alert('当前没有可导出的 API 调用记录（先让学生发几条消息）'); return; }
+  const headers = ['时间','学生','阶段','输入tokens','输出tokens','总tokens','延迟(ms)','状态码','错误'];
+  const rows = logs.map(l => [
+    l.created_at,
+    l.student_code || (l.student_id ? l.student_id.slice(0,8) : ''),
+    STAGE_DISPLAY[l.stage] || l.stage || '',
+    l.prompt_tokens ?? '',
+    l.completion_tokens ?? '',
+    l.total_tokens ?? '',
+    l.latency_ms ?? '',
+    l.status_code ?? '',
+    l.error || ''
+  ]);
+  downloadCsv(`PBL_API日志_${stamp()}.csv`, headers, rows);
+}
+
+// 导出 2：学生对话记录（逐条，含全部 4 阶段）
+async function downloadConversations() {
+  const list = window.__convsCache || [];
+  let total = list.reduce((n, g) => {
+    for (const k of Object.keys(g.stages || {})) n += g.stages[k].length;
+    return n;
+  }, 0);
+  if (total === 0) { alert('当前没有可导出的对话记录（先让学生发几条消息）'); return; }
+  const headers = ['学生姓名','学号','班级','阶段','发送方','内容','时间'];
+  const rows = [];
+  for (const g of list) {
+    for (const stage of STAGE_ORDER) {
+      const msgs = g.stages[stage];
+      if (!msgs || msgs.length === 0) continue;
+      for (const m of msgs) {
+        rows.push([
+          g.display_name || '',
+          g.student_code || '',
+          g.class_label || '',
+          STAGE_DISPLAY[stage] || stage,
+          m.role === 'user' ? '学生' : '助手',
+          m.content,
+          m.created_at
+        ]);
+      }
+    }
+  }
+  downloadCsv(`PBL_对话记录_${stamp()}.csv`, headers, rows);
 }
 
 init();
