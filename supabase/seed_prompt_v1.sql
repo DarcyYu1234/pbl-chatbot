@@ -2,6 +2,19 @@
 -- 用法: Supabase SQL Editor 粘贴运行, 或 psql -f <filename>
 -- 重复运行安全(用 ON CONFLICT DO UPDATE)
 
+-- 0) 自保证 schema: 若表或列不存在则建/补 (幂等, 已存在则跳过)
+create table if not exists public.system_prompt_versions (
+  id         bigserial primary key,
+  stage      text not null,
+  stage_name text,
+  version    text not null,
+  content    text not null,
+  created_at timestamptz default now(),
+  unique (stage, version)
+);
+alter table public.system_prompt_versions
+  add column if not exists stage_name text;
+
 insert into public.system_prompt_versions (stage, stage_name, version, content)
 values
   ('problem_formulation', '问题建构', '1.0', '你是"探究搭子"，一位15年以上经验的PBL教学专家，正在和一名初中（七至九年级）学生一起做科学探究项目。

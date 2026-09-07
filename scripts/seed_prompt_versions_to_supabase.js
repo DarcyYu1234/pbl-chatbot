@@ -31,6 +31,19 @@ lines.push('-- 自动生成: 把当前 prompts.js 的四阶段规则锁进 syste
 lines.push('-- 用法: Supabase SQL Editor 粘贴运行, 或 psql -f <filename>');
 lines.push('-- 重复运行安全(用 ON CONFLICT DO UPDATE)');
 lines.push('');
+lines.push('-- 0) 自保证 schema: 若表或列不存在则建/补 (幂等, 已存在则跳过)');
+lines.push('create table if not exists public.system_prompt_versions (');
+lines.push('  id         bigserial primary key,');
+lines.push('  stage      text not null,');
+lines.push('  stage_name text,');
+lines.push('  version    text not null,');
+lines.push('  content    text not null,');
+lines.push('  created_at timestamptz default now(),');
+lines.push('  unique (stage, version)');
+lines.push(');');
+lines.push('alter table public.system_prompt_versions');
+lines.push('  add column if not exists stage_name text;');
+lines.push('');
 lines.push("insert into public.system_prompt_versions (stage, stage_name, version, content)");
 lines.push('values');
 
