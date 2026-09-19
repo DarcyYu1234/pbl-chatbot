@@ -7,7 +7,20 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // =========================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ==========================================================
+// 多账号并存：按角色分 storage key。
+// 学生会话存在 sb-pbl-auth-student，教师会话存在 sb-pbl-auth-teacher，
+// 同一浏览器里两端可同时登录互不覆盖；登录页用一次性 scratch key。
+// student.js / teacher.js 必须用相同 key。
+// ==========================================================
+const STORAGE_KEY_LOGIN   = 'sb-pbl-auth-login';
+const STORAGE_KEY_STUDENT = 'sb-pbl-auth-student';
+const STORAGE_KEY_TEACHER = 'sb-pbl-auth-teacher';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { storageKey: STORAGE_KEY_LOGIN }
+});
 
 const errBox = document.getElementById('err');
 
@@ -56,11 +69,24 @@ document.getElementById('loginBtn').onclick = async () => {
   const userEmail = norm(data.user.email);
   const isTeacher = profile.role === 'teacher' || TEACHER_EMAILS.some(t => norm(t) === userEmail);
 
-  // 临时调试输出：把诊断信息打到 Console / alert / 登录页 三处
-  const dbg = `role=${profile.role} | email=${userEmail} | isTeacher=${isTeacher}`;
-  console.log('[auth.js]', dbg);
-  alert('[DEBUG]\n' + dbg);   // 强制阻塞，必须点确认才能继续跳转 → 100% 看到诊断值
-  if (errBox) errBox.textContent = dbg;
+  // 诊断信息打到 Console（不再用 alert 阻塞跳转）
+  console.log('[auth.js]', `role=${profile.role} | email=${userEmail} | isTeacher=${isTeacher}`);
+
+  // ==========================================================
+  // 把会话写进对应角色的 storage key，实现学生端/教师端同浏览器并存。
+  // 登录页 client 用的是 scratch key，setSession 后会话持久化到目标 key。
+  // ==========================================================
+  const target = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { storageKey: isTeacher ? STORAGE_KEY_TEACHER : STORAGE_KEY_STUDENT }
+  });
+  const { error: sErr } = await target.auth.setSession({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token
+  });
+  if (sErr) {
+    errBox.textContent = '写入会话失败：' + sErr.message;
+    return;
+  }
 
   if (isTeacher) location.href = '/teacher';
   else              location.href = '/student';

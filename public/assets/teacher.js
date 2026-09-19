@@ -7,7 +7,10 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // =========================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// 角色专属 storage key：与 auth.js 登录页写入的 key 一致，学生/教师会话可同浏览器并存
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { storageKey: 'sb-pbl-auth-teacher' }
+});
 
 const STAGE_DISPLAY = {
   problem_formulation: '① 问题建构',
@@ -60,7 +63,7 @@ async function init() {
   await loadConversations();
 
   // 事件绑定 —— 按钮一次刷新两个面板（API 日志 + 对话记录）
-  document.getElementById('toggleBot').onchange       = onToggle;
+  document.getElementById('chatbotToggleBtn').onclick = onToggleBtn;
   document.getElementById('applyStageBtn').onclick     = onStage;
   document.getElementById('createBtn').onclick         = onCreate;
   document.getElementById('refreshLogs').onclick       = refreshAll;
@@ -113,19 +116,41 @@ async function loadCtrl() {
     .select('key,value')
     .in('key', ['chatbot_enabled', 'current_stage']);
   const cfg = Object.fromEntries((data || []).map(r => [r.key, r.value]));
-  document.getElementById('toggleBot').checked = cfg.chatbot_enabled !== false;
+  renderToggleState(cfg.chatbot_enabled !== false);
   document.getElementById('stageSelect').value = cfg.current_stage || 'problem_formulation';
 }
 
-async function onToggle(e) {
-  const enabled = e.target.checked;
+// 渲染 chatbot 开关大按钮的视觉状态（绿=运行中 / 红=已关闭）
+function renderToggleState(enabled) {
+  const btn = document.getElementById('chatbotToggleBtn');
+  if (!btn) return;
+  btn.textContent = enabled ? '🟢 Chatbot 运行中 — 点击关闭' : '🔴 Chatbot 已关闭 — 点击开启';
+  btn.style.background = enabled ? '#16a34a' : '#dc2626';
+  btn.style.borderColor = enabled ? '#16a34a' : '#dc2626';
+  btn.style.color = '#fff';
+}
+
+// 一键切换 chatbot 开关
+async function onToggleBtn() {
+  // 从按钮当前文案推断状态，切换到反状态
+  const btn = document.getElementById('chatbotToggleBtn');
+  const currentlyEnabled = btn.textContent.includes('运行中');
+  const enabled = !currentlyEnabled;
+
+  // 乐观更新：先变按钮，失败再回滚
+  renderToggleState(enabled);
   const r = await authedFetch('/api/admin/toggle', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ enabled })
   });
-  document.getElementById('ctrlMsg').textContent =
-    r.ok ? `已${enabled ? '开启' : '关闭'} chatbot` : '更新失败';
+  if (r.ok) {
+    document.getElementById('ctrlMsg').textContent =
+      enabled ? '✅ Chatbot 已开启，学生可以对话了' : '⏸️ Chatbot 已关闭，学生端暂停对话（0 token 消耗）';
+  } else {
+    renderToggleState(!enabled); // 回滚
+    document.getElementById('ctrlMsg').textContent = '更新失败，请重试';
+  }
 }
 
 async function onStage() {

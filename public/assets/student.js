@@ -7,7 +7,10 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // =========================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// 角色专属 storage key：与 auth.js 登录页写入的 key 一致，学生/教师会话可同浏览器并存
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { storageKey: 'sb-pbl-auth-student' }
+});
 
 const STAGE_DISPLAY = {
   problem_formulation: '① 问题建构',

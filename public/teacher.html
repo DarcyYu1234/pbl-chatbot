@@ -20,11 +20,13 @@
     <!-- ① 全局控制 -->
     <section class="panel">
       <h2>① 全局控制</h2>
-      <div class="row">
-        <label>
-          <input type="checkbox" id="toggleBot">
-          <span>开启 chatbot（取消勾选后学生端会立即被禁用）</span>
-        </label>
+      <div class="row" style="align-items:center;gap:12px">
+        <button id="chatbotToggleBtn"
+          style="margin:0;min-width:220px;padding:12px 18px;font-size:15px;font-weight:600"
+          title="一键开关学生端的 AI 对话（关闭后学生发消息会收到'chatbot 已关闭'提示，不再消耗 token）">
+          …
+        </button>
+        <span class="muted small">上课时开启，下课/节流时关闭——关闭后 DeepSeek 不会被调用，0 token 消耗。</span>
       </div>
       <div class="row">
         <span>当前 PBL 阶段：</span>
