@@ -189,3 +189,4 @@ End every reply with at most one question; keep the whole reply within
 ## 变更记录
 
 - v1.0 → v2.0：全量英文重写；年龄范围扩大为 G7–G12 并加分级校准；新增 Answer boundary、Stance under pressure（抗妥协 / 卡死降级+情感支持 / 句式多样化 / 冷启动）、每阶段 Final reminder。快照：`supabase/seed_prompt_v2.sql`（在 Supabase SQL Editor 跑一次即可存档，幂等可重复运行）。
+- v2.0 → v2.1：**语言跟随规则收紧**——实测发现前几轮用中文后，英文提问会"惯性"回中文（约束衰减）。改动：① Language & form 规则改为"看学生**最新一条**消息，每轮重新判定"；② 四阶段 Final reminder 首行加语言重申；③ `api/chat.js` 每轮在消息序列末尾注入运行时语言指令（按 CJK 占比检测学生最新消息语言，en/zh 双向，混合语言交给句框规则）。快照：`supabase/seed_prompt_v2_1.sql`。

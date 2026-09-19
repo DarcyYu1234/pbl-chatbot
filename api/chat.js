@@ -5,6 +5,28 @@ const { chat } = require('./_lib/deepseek');
 const { getPrompt, getPromptMeta, STAGE_DISPLAY } = require('./_lib/prompts');
 const { logApiCall } = require('./_lib/logger');
 
+// 检测学生最新消息的语言（CJK 占比法），返回 'zh' | 'en' | null(无法判定)
+function detectLanguage(text) {
+  const cjk = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+  const latin = (text.match(/[A-Za-z]/g) || []).length;
+  if (cjk === 0 && latin === 0) return null;
+  if (cjk === 0) return 'en';
+  if (latin === 0) return 'zh';
+  return (cjk / (cjk + latin)) > 0.3 ? 'zh' : 'en';
+}
+
+// 生成运行时语言指令：放在消息序列最末尾（recency 位置最有效），
+// 修"中文历史惯性导致英文提问仍回中文"的问题。混合语言场景交给 prompt 句框规则。
+function languageDirective(lang) {
+  if (lang === 'en') {
+    return { role: 'system', content: 'Language directive: the student\'s latest message is in English. Reply ENTIRELY in English this turn, even if earlier conversation was in Chinese.' };
+  }
+  if (lang === 'zh') {
+    return { role: 'system', content: '语言指令：学生最新一条消息是中文。本轮请完全用中文回复（学生夹杂的英文术语可保留原文）。' };
+  }
+  return null;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
@@ -52,8 +74,9 @@ module.exports = async function handler(req, res) {
     const messages = [
       { role: 'system', content: systemPrompt },
       ...(history || []).map(h => ({ role: h.role, content: h.content })),
-      { role: 'user', content: userText }
-    ];
+      { role: 'user', content: userText },
+      languageDirective(detectLanguage(userText))
+    ].filter(Boolean);
 
     // 4) 先持久化学生消息
     await supabaseAdmin.from('conversations').insert({
