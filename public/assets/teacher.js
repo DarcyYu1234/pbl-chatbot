@@ -100,14 +100,37 @@ function flashRefreshBtn() {
   });
 }
 
+console.log('[teacher.js] build: multi-session (role storage key + fresh token)');
+
+async function getAccessToken() {
+  // 每次请求现取 token；临近过期(≤60s)自动刷新，避免拿到失效 JWT
+  const { data } = await supabase.auth.getSession();
+  let sess = data.session;
+  if (sess && sess.expires_at && sess.expires_at * 1000 - Date.now() < 60000) {
+    const r = await supabase.auth.refreshSession();
+    sess = r?.data?.session || sess;
+  }
+  return sess ? sess.access_token : null;
+}
+
 async function authedFetch(path, opts = {}) {
-  return fetch(path, {
+  const doFetch = (token) => fetch(path, {
     ...opts,
     headers: {
       ...(opts.headers || {}),
-      Authorization: `Bearer ${session.access_token}`
+      Authorization: `Bearer ${token}`
     }
   });
+  const token = await getAccessToken();
+  if (!token) { location.href = '/'; return new Response('{"error":"unauthenticated"}', { status: 401 }); }
+  let resp = await doFetch(token);
+  // 401 → 刷新会话后重试一次；仍失败把错误交给调用方显示
+  if (resp.status === 401) {
+    const r = await supabase.auth.refreshSession();
+    const fresh = r?.data?.session?.access_token;
+    if (fresh) resp = await doFetch(fresh);
+  }
+  return resp;
 }
 
 async function loadCtrl() {

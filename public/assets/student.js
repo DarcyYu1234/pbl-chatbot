@@ -118,6 +118,19 @@ function render() {
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 
+console.log('[student.js] build: multi-session (role storage key + fresh token)');
+
+async function getAccessToken() {
+  // 每次请求现取 token；临近过期(≤60s)自动刷新，避免拿到失效 JWT
+  const { data } = await supabase.auth.getSession();
+  let sess = data.session;
+  if (sess && sess.expires_at && sess.expires_at * 1000 - Date.now() < 60000) {
+    const r = await supabase.auth.refreshSession();
+    sess = r?.data?.session || sess;
+  }
+  return sess ? sess.access_token : null;
+}
+
 async function send() {
   const text = input.value.trim();
   if (!text) return;
@@ -130,14 +143,24 @@ async function send() {
 
   const stageAtSend = currentStage;
 
-  const resp = await fetch('/api/chat', {
+  const doFetch = (token) => fetch('/api/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`
+      Authorization: `Bearer ${token}`
     },
     body: JSON.stringify({ message: text })
   });
+
+  const token = await getAccessToken();
+  if (!token) { location.href = '/'; return; }
+  let resp = await doFetch(token);
+  // 401 → 刷新会话后重试一次
+  if (resp.status === 401) {
+    const r = await supabase.auth.refreshSession();
+    const fresh = r?.data?.session?.access_token;
+    if (fresh) resp = await doFetch(fresh);
+  }
   const j = await resp.json();
   sendBtn.disabled = false;
 

@@ -21,6 +21,7 @@ const STORAGE_KEY_TEACHER = 'sb-pbl-auth-teacher';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { storageKey: STORAGE_KEY_LOGIN }
 });
+console.log('[auth.js] build: multi-session (role storage keys)');
 
 const errBox = document.getElementById('err');
 
