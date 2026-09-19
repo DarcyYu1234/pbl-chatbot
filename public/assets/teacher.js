@@ -68,6 +68,14 @@ async function init() {
   document.getElementById('createBtn').onclick         = onCreate;
   document.getElementById('refreshLogs').onclick       = refreshAll;
   document.getElementById('refreshConvs').onclick      = refreshAll;
+  // ③ API 调用日志面板 折叠/展开（折叠时后台刷新照常进行）
+  document.getElementById('logsCollapseBtn').onclick   = () => {
+    const body = document.getElementById('logsBody');
+    const btn  = document.getElementById('logsCollapseBtn');
+    const willShow = body.style.display === 'none';
+    body.style.display = willShow ? '' : 'none';
+    btn.textContent    = willShow ? '▾ 折叠' : '▸ 展开';
+  };
   document.getElementById('exportLogsBtn').onclick     = () => downloadApiLogs();
   document.getElementById('exportConvsBtn').onclick    = () => downloadConversations();
   const b1 = document.getElementById('exportConvJsonBtn');
