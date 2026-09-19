@@ -33,6 +33,9 @@ const errBox = document.getElementById('err');
 // ==========================================================
 supabase.auth.signOut({ scope: 'local' }).catch(() => { /* ignore */ });
 
+// 清理多会话改造前的历史遗留默认 key 会话，避免旧状态干扰
+try { localStorage.removeItem('sb-nlbsaevhqowzonhkkejj-auth-token'); } catch (e) { /* ignore */ }
+
 document.getElementById('loginBtn').onclick = async () => {
   errBox.textContent = '';
   const email    = document.getElementById('email').value.trim();
