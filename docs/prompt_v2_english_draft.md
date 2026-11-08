@@ -1,5 +1,11 @@
-# Prompt v2.0 英文终稿（Spec）
+# Prompt v2.0 英文终稿（Spec）— 历史版本，已被 v2.2 取代
 
+> ⚠️ **本文件仅为 v2.0 的历史留档，勿作为现行依据。**
+> 现行线上版本见 `docs/system_prompt_v2.2.md`（由 `scripts/render_prompt_doc.js`
+> 从 `api/_lib/prompts.js` 自动生成，与代码逐字一致）。
+> v2.1 修语言惯性（改为跟随最新一条消息 + 运行时指令）；v2.2 冻结为 G8–G9 并加入
+> 固定主题锚定（反应速率 / 泡腾片情境）。
+>
 > 状态：**已定稿，并入 `api/_lib/prompts.js`（PROMPT_VERSION = 2.0）**，快照 SQL 见 `supabase/seed_prompt_v2.sql`。
 >
 > 相对最初草稿的增补：回答边界（Answer boundary）、压力应对（Stance under pressure：抗妥协 + 卡死降级 + 情感支持 + 句式多样化 + 冷启动）、每阶段末尾 Final reminder（recency 加固）。年龄范围扩大为 G7–G12（12–18 岁）。
